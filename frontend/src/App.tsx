@@ -1,156 +1,95 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import LancamentosTable from "./LancamentosTable";
+import LoginPage from "./LoginPage";
+import type { Usuario } from "./types";
 
-export type Lancamento = {
-  id: string;
-  descricao: string;
-  data_lancamento: string;
-  valor: number;
-  tipo_lancamento: string;
-  situacao: string;
-};
-
-const money = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-});
-
-const dateFmt = new Intl.DateTimeFormat("pt-BR", {
-  dateStyle: "short",
-  timeStyle: "short",
-});
-
-function tipoClass(tipo: string) {
-  if (tipo === "Receita") {
-    return "text-emerald-700 bg-emerald-50 ring-emerald-600/20";
-  }
-  if (tipo === "Despesa") {
-    return "text-red-700 bg-red-50 ring-red-600/20";
-  }
-  return "text-slate-700 bg-slate-100 ring-slate-600/10";
-}
+type AuthState = "checking" | "guest" | "user";
 
 export default function App() {
-  const [items, setItems] = useState<Lancamento[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [auth, setAuth] = useState<AuthState>("checking");
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+
+  const logout = useCallback(() => {
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("usuario");
+    setToken(null);
+    setUsuario(null);
+    setAuth("guest");
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/lancamentos");
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const data: Lancamento[] = await res.json();
-        if (!cancelled) {
-          setItems(data);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Falha ao carregar");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
+    const t = sessionStorage.getItem("token");
+    if (!t) {
+      setAuth("guest");
+      return;
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
+    setToken(t);
+    fetch("/api/me", { headers: { Authorization: `Bearer ${t}` } })
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error("unauthorized");
+        }
+        const data = (await res.json()) as { usuario: Usuario };
+        setUsuario(data.usuario);
+        setAuth("user");
+      })
+      .catch(() => {
+        sessionStorage.removeItem("token");
+        sessionStorage.removeItem("usuario");
+        setToken(null);
+        setAuth("guest");
+      });
   }, []);
+
+  function handleLoggedIn(t: string, u: Usuario) {
+    setToken(t);
+    setUsuario(u);
+    setAuth("user");
+  }
+
+  if (auth === "checking") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600">
+        Verificando sessão…
+      </div>
+    );
+  }
+
+  if (auth === "guest" || !token || !usuario) {
+    return <LoginPage onLoggedIn={handleLoggedIn} />;
+  }
 
   return (
     <div className="min-h-screen">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl flex-col gap-1 px-4 py-8 sm:px-6">
-          <p className="text-sm font-medium text-slate-500">Protótipo</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Registro de despesas e receitas
-          </h1>
-          <p className="max-w-2xl text-sm text-slate-600">
-            Lista carregada do endpoint <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">GET /api/lancamentos</code>
-          </p>
+        <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-medium text-slate-500">Protótipo</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+              Registro de despesas e receitas
+            </h1>
+            <p className="text-sm text-slate-600">
+              Olá, <span className="font-medium text-slate-800">{usuario.nome}</span> ({usuario.login})
+            </p>
+            <p className="max-w-2xl text-sm text-slate-600">
+              Lista via{" "}
+              <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">GET /api/lancamentos</code>{" "}
+              (autenticado)
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="self-start rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Sair
+          </button>
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-        {loading && (
-          <p className="rounded-lg border border-slate-200 bg-white p-6 text-center text-slate-600 shadow-sm">
-            Carregando lançamentos…
-          </p>
-        )}
-
-        {error && (
-          <div
-            className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
-            role="alert"
-          >
-            <p className="font-medium">Não foi possível carregar os dados.</p>
-            <p className="mt-1">{error}</p>
-            <p className="mt-2 text-red-700/90">
-              Confirme se o backend está em <code className="rounded bg-red-100 px-1">http://localhost:3001</code> e se o banco foi migrado e populado.
-            </p>
-          </div>
-        )}
-
-        {!loading && !error && items.length === 0 && (
-          <p className="rounded-lg border border-slate-200 bg-white p-6 text-center text-slate-600 shadow-sm">
-            Nenhum lançamento encontrado.
-          </p>
-        )}
-
-        {!loading && !error && items.length > 0 && (
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-3">Descrição</th>
-                    <th className="px-4 py-3">Data</th>
-                    <th className="px-4 py-3 text-right">Valor</th>
-                    <th className="px-4 py-3">Tipo</th>
-                    <th className="px-4 py-3">Situação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {items.map((row) => {
-                    const isReceita = row.tipo_lancamento === "Receita";
-                    return (
-                      <tr key={row.id} className="hover:bg-slate-50/80">
-                        <td className="px-4 py-3 font-medium text-slate-900">{row.descricao}</td>
-                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                          {dateFmt.format(new Date(row.data_lancamento))}
-                        </td>
-                        <td
-                          className={`whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums ${
-                            isReceita ? "text-emerald-700" : "text-red-700"
-                          }`}
-                        >
-                          {money.format(row.valor)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${tipoClass(
-                              row.tipo_lancamento
-                            )}`}
-                          >
-                            {row.tipo_lancamento}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-slate-700">{row.situacao}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        <LancamentosTable token={token} onUnauthorized={logout} />
       </main>
     </div>
   );

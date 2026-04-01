@@ -1,10 +1,13 @@
--- Usuário administrador (senha em texto apenas para desenvolvimento local)
+-- Limpa dados de exemplo para permitir rodar o seed várias vezes (apenas desenvolvimento).
+TRUNCATE TABLE "lancamento", "usuario";
+
+-- Usuário de exemplo (senha: augusto123 — armazenada como hash bcrypt)
 INSERT INTO "usuario" ("id", "nome", "login", "senha", "situacao")
 VALUES (
   '550e8400-e29b-41d4-a716-446655440000',
-  'Administrador',
-  'admin',
-  'admin123',
+  'Augusto',
+  'augusto',
+  '$2b$10$rvDV15Y2zt4V30sVWGr7G.McGoGdUSGRAEYltoGFGl4dZNn1M74Gy',
   'Ativo'
 );
 
