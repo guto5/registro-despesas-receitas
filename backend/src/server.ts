@@ -5,8 +5,10 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import { prisma } from "./lib/prisma.js";
 import { requireAuth } from "./middleware/auth.js";
+import { sendNotification } from "./services/emailService.js";
+import { streamLancamentosPDF } from "./services/pdfService.js";
 
-const app = express();
+export const app = express();
 const PORT = 3001;
 
 app.use(
@@ -15,6 +17,8 @@ app.use(
   })
 );
 app.use(express.json());
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
 
 app.post("/api/login", async (req, res) => {
   try {
@@ -61,26 +65,181 @@ app.get("/api/me", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/api/lancamentos", requireAuth, async (_req, res) => {
+// ── Lancamentos ───────────────────────────────────────────────────────────────
+
+function buildLancamentoWhere(query: Record<string, unknown>) {
+  const where: Record<string, unknown> = {};
+
+  if (typeof query.dataInicio === "string" && query.dataInicio) {
+    where.data_lancamento = {
+      ...(where.data_lancamento as object | undefined),
+      gte: new Date(query.dataInicio as string),
+    };
+  }
+  if (typeof query.dataFim === "string" && query.dataFim) {
+    const end = new Date(query.dataFim as string);
+    end.setHours(23, 59, 59, 999);
+    where.data_lancamento = {
+      ...(where.data_lancamento as object | undefined),
+      lte: end,
+    };
+  }
+  if (typeof query.situacao === "string" && query.situacao) {
+    where.situacao = query.situacao;
+  }
+
+  return where;
+}
+
+function formatLancamento(l: {
+  id: string;
+  descricao: string;
+  data_lancamento: Date;
+  valor: { toNumber(): number } | number;
+  tipo_lancamento: string;
+  situacao: string;
+}) {
+  return {
+    id: l.id,
+    descricao: l.descricao,
+    data_lancamento: l.data_lancamento.toISOString(),
+    valor: typeof l.valor === "number" ? l.valor : (l.valor as { toNumber(): number }).toNumber(),
+    tipo_lancamento: l.tipo_lancamento,
+    situacao: l.situacao,
+  };
+}
+
+// GET /api/lancamentos?dataInicio=&dataFim=&situacao=
+app.get("/api/lancamentos", requireAuth, async (req, res) => {
   try {
+    const where = buildLancamentoWhere(req.query as Record<string, unknown>);
     const rows = await prisma.lancamento.findMany({
+      where,
       orderBy: { data_lancamento: "desc" },
     });
-    const payload = rows.map((l) => ({
-      id: l.id,
-      descricao: l.descricao,
-      data_lancamento: l.data_lancamento.toISOString(),
-      valor: Number(l.valor),
-      tipo_lancamento: l.tipo_lancamento,
-      situacao: l.situacao,
-    }));
-    res.json(payload);
+    res.json(rows.map(formatLancamento));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Erro ao buscar lançamentos" });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`API em http://localhost:${PORT}`);
+// GET /api/lancamentos/pdf
+app.get("/api/lancamentos/pdf", requireAuth, async (req, res) => {
+  try {
+    const where = buildLancamentoWhere(req.query as Record<string, unknown>);
+    const rows = await prisma.lancamento.findMany({
+      where,
+      orderBy: { data_lancamento: "desc" },
+    });
+    streamLancamentosPDF(res, rows.map(formatLancamento));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro ao gerar PDF" });
+  }
 });
+
+// POST /api/lancamentos
+app.post("/api/lancamentos", requireAuth, async (req, res) => {
+  try {
+    const { descricao, valor, data_lancamento, tipo_lancamento, situacao } = req.body as {
+      descricao?: string;
+      valor?: number;
+      data_lancamento?: string;
+      tipo_lancamento?: string;
+      situacao?: string;
+    };
+
+    if (!descricao || valor === undefined || valor === null || !data_lancamento || !tipo_lancamento || !situacao) {
+      return res.status(400).json({ error: "Todos os campos são obrigatórios" });
+    }
+
+    const created = await prisma.lancamento.create({
+      data: {
+        descricao,
+        valor,
+        data_lancamento: new Date(data_lancamento),
+        tipo_lancamento,
+        situacao,
+      },
+    });
+
+    const formatted = formatLancamento(created);
+
+    void sendNotification(
+      `Lançamento criado: ${descricao}`,
+      `Um novo lançamento foi criado:\n\nDescrição: ${descricao}\nValor: R$ ${valor}\nTipo: ${tipo_lancamento}\nSituação: ${situacao}\nData: ${data_lancamento}`
+    );
+
+    res.status(201).json(formatted);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro ao criar lançamento" });
+  }
+});
+
+// PUT /api/lancamentos/:id
+app.put("/api/lancamentos/:id", requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const { descricao, valor, data_lancamento, tipo_lancamento, situacao } = req.body as {
+      descricao?: string;
+      valor?: number;
+      data_lancamento?: string;
+      tipo_lancamento?: string;
+      situacao?: string;
+    };
+
+    const existing = await prisma.lancamento.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: "Lançamento não encontrado" });
+    }
+
+    const updated = await prisma.lancamento.update({
+      where: { id },
+      data: {
+        ...(descricao !== undefined && { descricao }),
+        ...(valor !== undefined && { valor }),
+        ...(data_lancamento !== undefined && { data_lancamento: new Date(data_lancamento) }),
+        ...(tipo_lancamento !== undefined && { tipo_lancamento }),
+        ...(situacao !== undefined && { situacao }),
+      },
+    });
+
+    const formatted = formatLancamento(updated);
+
+    void sendNotification(
+      `Lançamento atualizado: ${updated.descricao}`,
+      `Um lançamento foi atualizado:\n\nDescrição: ${updated.descricao}\nValor: R$ ${updated.valor}\nTipo: ${updated.tipo_lancamento}\nSituação: ${updated.situacao}`
+    );
+
+    res.json(formatted);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro ao atualizar lançamento" });
+  }
+});
+
+// DELETE /api/lancamentos/:id
+app.delete("/api/lancamentos/:id", requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id as string;
+
+    const existing = await prisma.lancamento.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: "Lançamento não encontrado" });
+    }
+
+    await prisma.lancamento.delete({ where: { id } });
+    res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro ao excluir lançamento" });
+  }
+});
+
+if (!process.env.VITEST) {
+  app.listen(PORT, () => {
+    console.log(`API em http://localhost:${PORT}`);
+  });
+}

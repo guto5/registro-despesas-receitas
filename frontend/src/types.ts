@@ -12,3 +12,17 @@ export type Usuario = {
   nome: string;
   login: string;
 };
+
+export type LancamentoFormData = {
+  descricao: string;
+  valor: string;
+  data_lancamento: string;
+  tipo_lancamento: string;
+  situacao: string;
+};
+
+export type Filters = {
+  dataInicio: string;
+  dataFim: string;
+  situacao: string;
+};
