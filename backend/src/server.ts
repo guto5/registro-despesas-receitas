@@ -2,6 +2,9 @@ import "dotenv/config";
 import bcrypt from "bcrypt";
 import cors from "cors";
 import express from "express";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import jwt from "jsonwebtoken";
 import { prisma } from "./lib/prisma.js";
 import { requireAuth } from "./middleware/auth.js";
@@ -9,7 +12,8 @@ import { sendNotification } from "./services/emailService.js";
 import { streamLancamentosPDF } from "./services/pdfService.js";
 
 export const app = express();
-const PORT = 3001;
+const PORT = Number(process.env.PORT) || 3001;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 app.use(
   cors({
@@ -238,8 +242,16 @@ app.delete("/api/lancamentos/:id", requireAuth, async (req, res) => {
   }
 });
 
+const publicDir = path.join(__dirname, "public");
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(publicDir, "index.html"));
+  });
+}
+
 if (!process.env.VITEST) {
   app.listen(PORT, () => {
-    console.log(`API em http://localhost:${PORT}`);
+    console.log(`Servidor em http://localhost:${PORT}`);
   });
 }
