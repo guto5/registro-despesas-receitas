@@ -7,6 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "lint": "eslint \"src/**/*.ts\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",
@@ -25,6 +26,7 @@
     "prisma": "^6.5.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
@@ -34,9 +36,12 @@
     "@types/pdfkit": "^0.17.5",
     "@types/supertest": "^7.2.0",
     "@vitest/coverage-v8": "^2.1.9",
+    "eslint": "^10.3.0",
+    "globals": "^17.6.0",
     "supertest": "^7.2.2",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
+    "typescript-eslint": "^8.59.2",
     "vitest": "^2.1.9"
   }
 }

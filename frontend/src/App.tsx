@@ -6,9 +6,11 @@ import type { Usuario } from "./types";
 type AuthState = "checking" | "guest" | "user";
 
 export default function App() {
-  const [auth, setAuth] = useState<AuthState>("checking");
+  const [token, setToken] = useState<string | null>(() => sessionStorage.getItem("token"));
+  const [auth, setAuth] = useState<AuthState>(() =>
+    sessionStorage.getItem("token") ? "checking" : "guest"
+  );
   const [usuario, setUsuario] = useState<Usuario | null>(null);
-  const [token, setToken] = useState<string | null>(null);
 
   const logout = useCallback(() => {
     sessionStorage.removeItem("token");
@@ -20,11 +22,7 @@ export default function App() {
 
   useEffect(() => {
     const t = sessionStorage.getItem("token");
-    if (!t) {
-      setAuth("guest");
-      return;
-    }
-    setToken(t);
+    if (!t) return;
     fetch("/api/me", { headers: { Authorization: `Bearer ${t}` } })
       .then(async (res) => {
         if (!res.ok) {
