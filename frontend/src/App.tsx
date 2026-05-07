@@ -33,14 +33,14 @@ export default function App() {
         setAuth("user");
       })
       .catch(() => {
-        sessionStorage.removeItem("token");
+                                        sessionStorage.removeItem("token");
         sessionStorage.removeItem("usuario");
         setToken(null);
-        setAuth("guest");
+              setAuth("guest");
       });
   }, []);
 
-  function handleLoggedIn(t: string, u: Usuario) {
+                        function handleLoggedIn(t: string, u: Usuario) {
     setToken(t);
     setUsuario(u);
     setAuth("user");
@@ -54,12 +54,18 @@ export default function App() {
     );
   }
 
-  if (auth === "guest" || !token || !usuario) {
+  if (auth === "guest" || 
+    !token || 
+    !usuario) {
+
+
+
+
     return <LoginPage onLoggedIn={handleLoggedIn} />;
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen"            >
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex flex-col gap-1">
