@@ -5,6 +5,8 @@ import type { Usuario } from "./types";
 
 type AuthState = "checking" | "guest" | "user";
 
+const versao = "1.0.0";
+
 export default function App() {
   const [token, setToken] = useState<string | null>(() => sessionStorage.getItem("token"));
   const [auth, setAuth] = useState<AuthState>(() =>
