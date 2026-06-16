@@ -77,7 +77,21 @@ docker run -d --name app-producao \
   --env-file "$INFRA_DIR/.env.prod" \
   app-registro-despesas:prod
 
-sleep 3
+echo "Aguardando aplicacao iniciar e rodar as migrations..."
+sleep 8
+
+# Popula o banco apenas se estiver vazio (primeira vez)
+USER_COUNT=$(docker exec db-producao psql -U admin -d app_db -tAc "SELECT COUNT(*) FROM usuario;" 2>/dev/null || echo "0")
+if [ "$USER_COUNT" -eq "0" ] 2>/dev/null; then
+  echo "Banco de Producao vazio — populando com dados iniciais..."
+  docker exec app-producao ./node_modules/.bin/prisma db execute \
+    --file prisma/seed.sql \
+    --schema prisma/schema.prisma
+  echo "Banco populado! Login: augusto / augusto123"
+else
+  echo "Banco de Producao ja possui dados — seed ignorado."
+fi
+
 docker ps --filter "name=app-producao" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 echo ""
@@ -87,4 +101,5 @@ if [ -n "$BRANCH" ]; then
   echo " Branch deployada : $BRANCH"
 fi
 echo " URL              : http://$(hostname -I | awk '{print $1}'):3001"
+echo " Login            : augusto / augusto123"
 echo "================================================================"
