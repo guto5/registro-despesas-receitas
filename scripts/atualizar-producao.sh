@@ -81,7 +81,7 @@ echo "Aguardando aplicacao iniciar e rodar as migrations..."
 sleep 8
 
 # Popula o banco apenas se estiver vazio (primeira vez)
-USER_COUNT=$(docker exec db-producao psql -U admin -d app_db -tAc "SELECT COUNT(*) FROM usuario;" 2>/dev/null || echo "0")
+USER_COUNT=$(docker exec db-producao psql -U admin -d app_db -tAc "SELECT COUNT(*) FROM lancamento;" 2>/dev/null || echo "0")
 if [ "$USER_COUNT" -eq "0" ] 2>/dev/null; then
   echo "Banco de Producao vazio — populando com dados iniciais..."
   docker exec app-producao ./node_modules/.bin/prisma db execute \
