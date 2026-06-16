@@ -12,9 +12,9 @@ echo "================================================================"
 
 # ── 1. Atualizar pacotes e instalar dependencias base ────────────────────────
 echo ""
-echo "[1/6] Instalando Docker, Git, Ansible e Python pip..."
+echo "[1/6] Instalando Docker, Git, Ansible, Nginx e SDK Python do Docker..."
 apt-get update -qq
-apt-get install -y -qq docker.io git ansible python3-pip curl
+apt-get install -y -qq docker.io git ansible nginx python3-docker curl
 
 systemctl enable docker --now
 
@@ -22,9 +22,6 @@ systemctl enable docker --now
 echo ""
 echo "[2/6] Instalando colecao Ansible community.docker..."
 ansible-galaxy collection install community.docker --timeout 60
-
-# Instala o SDK Python do Docker (exigido pelo modulo community.docker)
-pip3 install docker --quiet
 
 # ── 3. Clonar repositorio ────────────────────────────────────────────────────
 echo ""
