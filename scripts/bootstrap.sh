@@ -81,19 +81,29 @@ echo "[5/6] Executando Ansible para provisionar a infraestrutura..."
 ansible-playbook "$REPO_DIR/scripts/deploy.yml" \
   -e "repo_dir=$REPO_DIR infra_dir=$INFRA_DIR"
 
-# ── 6. Confirmar status ───────────────────────────────────────────────────────
+# ── 6. Popular banco de Homologacao com dados iniciais ───────────────────────
 echo ""
-echo "[6/6] Verificando containers em execucao..."
+echo "[6/7] Populando banco de Homologacao com dados de exemplo..."
+echo "Aguardando aplicacao iniciar e rodar as migrations..."
+sleep 8
+docker exec app-homologacao ./node_modules/.bin/prisma db execute \
+  --file prisma/seed.sql \
+  --schema prisma/schema.prisma
+echo "Banco populado! Login: augusto / augusto123"
+
+# ── 7. Confirmar status ───────────────────────────────────────────────────────
+echo ""
+echo "[7/7] Verificando containers em execucao..."
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 echo ""
 echo "================================================================"
 echo " Bootstrap concluido!"
 echo " Homologacao: http://$(hostname -I | awk '{print $1}'):3000"
-echo " Producao:    http://$(hostname -I | awk '{print $1}'):3001"
+echo "   Login: augusto / augusto123"
 echo "                                                                "
-echo " Para atualizar homolog: cd $REPO_DIR"
+echo " Para subir Producao:"
+echo "   cd $REPO_DIR && sudo ./scripts/atualizar-producao.sh"
+echo " Para atualizar homolog (branch especifica):"
 echo "   sudo ./scripts/atualizar-homologacao.sh [branch]"
-echo " Para atualizar prod:"
-echo "   sudo ./scripts/atualizar-producao.sh"
 echo "================================================================"
