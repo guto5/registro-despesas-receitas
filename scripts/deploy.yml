@@ -1,0 +1,123 @@
+---
+- name: Provisionar Ambientes de Homologacao e Producao
+  hosts: localhost
+  connection: local
+
+  vars:
+    repo_dir: "{{ ansible_env.HOME }}/registro-despesas-receitas"
+    infra_dir: "{{ ansible_env.HOME }}/infraestrutura"
+    app_image: app-registro-despesas
+    db_user: admin
+    db_password: adminpassword
+    db_name: app_db
+
+  tasks:
+
+    # ── Rede Docker ────────────────────────────────────────────────────────────
+    - name: Garantir que a rede rede_app existe
+      community.docker.docker_network:
+        name: rede_app
+        state: present
+
+    # ── Banco de dados — Homologacao ───────────────────────────────────────────
+    - name: Iniciar container db-homologacao
+      community.docker.docker_container:
+        name: db-homologacao
+        image: postgres:15-alpine
+        state: started
+        restart_policy: always
+        env:
+          POSTGRES_USER: "{{ db_user }}"
+          POSTGRES_PASSWORD: "{{ db_password }}"
+          POSTGRES_DB: "{{ db_name }}"
+        volumes:
+          - volume-homolog:/var/lib/postgresql/data
+        networks:
+          - name: rede_app
+
+    # ── Banco de dados — Producao ──────────────────────────────────────────────
+    - name: Iniciar container db-producao
+      community.docker.docker_container:
+        name: db-producao
+        image: postgres:15-alpine
+        state: started
+        restart_policy: always
+        env:
+          POSTGRES_USER: "{{ db_user }}"
+          POSTGRES_PASSWORD: "{{ db_password }}"
+          POSTGRES_DB: "{{ db_name }}"
+        volumes:
+          - volume-prod:/var/lib/postgresql/data
+        networks:
+          - name: rede_app
+
+    # ── Aguardar os bancos subirem ─────────────────────────────────────────────
+    - name: Aguardar db-homologacao estar pronto
+      community.docker.docker_container_exec:
+        container: db-homologacao
+        command: pg_isready -U {{ db_user }}
+      register: pg_ready_homolog
+      retries: 10
+      delay: 3
+      until: pg_ready_homolog.rc == 0
+
+    - name: Aguardar db-producao estar pronto
+      community.docker.docker_container_exec:
+        container: db-producao
+        command: pg_isready -U {{ db_user }}
+      register: pg_ready_prod
+      retries: 10
+      delay: 3
+      until: pg_ready_prod.rc == 0
+
+    # ── Build da imagem da aplicacao ───────────────────────────────────────────
+    - name: Build da imagem Docker da aplicacao (tag homolog)
+      community.docker.docker_image:
+        name: "{{ app_image }}"
+        tag: homolog
+        build:
+          path: "{{ repo_dir }}"
+        source: build
+        force_source: true
+
+    # ── Aplicacao — Homologacao ────────────────────────────────────────────────
+    - name: Iniciar container app-homologacao
+      community.docker.docker_container:
+        name: app-homologacao
+        image: "{{ app_image }}:homolog"
+        state: started
+        restart_policy: always
+        recreate: true
+        ports:
+          - "3000:3001"
+        env_file: "{{ infra_dir }}/.env.homolog"
+        networks:
+          - name: rede_app
+
+    # ── Nginx ──────────────────────────────────────────────────────────────────
+    - name: Copiar nginx.conf para sites-available
+      copy:
+        src: "{{ repo_dir }}/nginx/nginx.conf"
+        dest: /etc/nginx/sites-available/app
+        mode: "0644"
+
+    - name: Ativar site no Nginx (symlink em sites-enabled)
+      file:
+        src: /etc/nginx/sites-available/app
+        dest: /etc/nginx/sites-enabled/app
+        state: link
+
+    - name: Remover site default do Nginx
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Testar configuracao do Nginx
+      command: nginx -t
+      changed_when: false
+
+    - name: Recarregar Nginx
+      service:
+        name: nginx
+        state: reloaded
+        enabled: true

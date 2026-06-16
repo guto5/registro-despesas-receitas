@@ -15,6 +15,10 @@ export const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// DEMO: descomente a linha abaixo para disparar erro no Quality Assurance (ESLint no-unused-vars)
+// const variavelDemoQA = "quebra o lint";
+
+
 app.use(
   cors({
     origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
