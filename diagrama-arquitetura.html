@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arquitetura CI/CD — Registro Despesas/Receitas</title>
+  <style>
+    @page { size: A4 landscape; margin: 10mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #080c18;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #e0eaff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      gap: 0;
+    }
+
+    h1 {
+      font-size: 1.05rem;
+      font-weight: 400;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: #7eb8ff;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    .subtitle {
+      font-size: .72rem;
+      color: #4a6080;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: 36px;
+      text-align: center;
+    }
+
+    /* ─── MAIN ROW ─────────────────────────────────────────────── */
+    .diagram {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      width: 100%;
+      max-width: 1280px;
+    }
+
+    /* ─── ARROWS ───────────────────────────────────────────────── */
+    .arrow-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      width: 68px;
+    }
+
+    .arr {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .arr-line {
+      width: 44px;
+      height: 2px;
+      position: relative;
+    }
+    .arr-line::after {
+      content: '';
+      position: absolute;
+      right: -1px; top: -4px;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      border-left: 8px solid currentColor;
+    }
+
+    .arr-label { font-size: .57rem; letter-spacing: .05em; text-transform: uppercase; opacity: .85; }
+
+    .arr.branch .arr-line  { background: #8b5cf6; color: #8b5cf6; }
+    .arr.branch .arr-label { color: #a78bfa; }
+    .arr.main   .arr-line  { background: #10b981; color: #10b981; }
+    .arr.main   .arr-label { color: #34d399; }
+    .arr.deploy .arr-line  { background: #06b6d4; color: #06b6d4; }
+    .arr.deploy .arr-label { color: #67e8f9; }
+
+    /* ─── PANEL BASE ───────────────────────────────────────────── */
+    .panel {
+      border-radius: 14px;
+      padding: 16px;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .plabel {
+      font-size: .63rem;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+      position: absolute;
+      top: 10px; left: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ─── GITHUB ───────────────────────────────────────────────── */
+    .github-panel {
+      border: 1.5px solid #3b4a6b;
+      background: #0d1424;
+      box-shadow: 0 0 18px #1e3a5f55;
+      width: 142px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      padding: 44px 12px 18px;
+    }
+
+    .github-panel .plabel { color: #5a7abf; }
+
+    .ibox {
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      width: 100%;
+      background: #161f33;
+      border: 1px solid #2a3a5c;
+    }
+
+    .ibox img { width: 28px; height: 28px; object-fit: contain; }
+    .ibox .iname { font-size: .69rem; font-weight: 600; text-align: center; }
+    .ibox .idesc { font-size: .57rem; color: #6b82a8; text-align: center; line-height: 1.4; }
+
+    /* ─── ACTIONS ──────────────────────────────────────────────── */
+    .actions-panel {
+      border: 1.5px solid #6d28d9;
+      background: #110d22;
+      box-shadow: 0 0 24px #6d28d955;
+      width: 178px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      padding: 38px 12px 14px;
+    }
+
+    .actions-panel .plabel { color: #a78bfa; }
+
+    .sbox {
+      background: #1c1535;
+      border: 1px solid #4c3572;
+      border-radius: 8px;
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sbox img { width: 17px; height: 17px; object-fit: contain; flex-shrink: 0; }
+    .sbox .sname { font-weight: 600; color: #c4b5fd; font-size: .67rem; }
+    .sbox .sdesc { color: #6b5fa0; font-size: .55rem; line-height: 1.3; }
+
+    .sarrow { text-align: center; color: #4c3572; font-size: .8rem; }
+
+    /* ─── VM ───────────────────────────────────────────────────── */
+    .vm-panel {
+      border: 1.5px solid #ef4444;
+      background: #130c0c;
+      box-shadow: 0 0 28px #ef444430;
+      flex: 1;
+      padding: 38px 10px 14px;
+    }
+
+    .vm-panel .plabel { color: #f87171; }
+
+    .vm-os {
+      font-size: .55rem;
+      color: #7a3030;
+      letter-spacing: .07em;
+      position: absolute;
+      top: 11px; right: 14px;
+    }
+
+    /* ─── NGINX — SYSTEM SERVICE (fora do Docker) ──────────────── */
+    .nginx-service-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 6px;
+    }
+
+    .nginx-service-box {
+      background: #071a11;
+      border: 1.5px solid #10b981;
+      box-shadow: 0 0 14px #10b98145;
+      border-radius: 10px;
+      padding: 7px 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nginx-service-box img { width: 20px; height: 20px; }
+    .nginx-service-box .nginx-name { font-size: .75rem; font-weight: 700; color: #10b981; letter-spacing: .07em; }
+    .nginx-service-box .nginx-tag {
+      font-size: .55rem;
+      background: #0d2e1e;
+      color: #6ee7b7;
+      border: 1px solid #059669;
+      border-radius: 4px;
+      padding: 1px 5px;
+      letter-spacing: .05em;
+    }
+
+    /* setas do nginx para os envs */
+    .nginx-arrows-row {
+      display: flex;
+      justify-content: space-around;
+      padding: 0 40px;
+      margin-bottom: 4px;
+    }
+
+    .nginx-arr {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+
+    .nginx-arr .na-label {
+      font-size: .58rem;
+      letter-spacing: .04em;
+      padding: 1px 7px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+
+    .na-homolog .na-label { background: #1e1040; color: #a78bfa; border: 1px solid #6d28d9; }
+    .na-prod    .na-label { background: #0a2215; color: #34d399; border: 1px solid #059669; }
+
+    .na-down {
+      font-size: .9rem;
+      line-height: 1;
+    }
+
+    .na-homolog .na-down { color: #6d28d9; }
+    .na-prod    .na-down { color: #059669; }
+
+    /* ─── DOCKER REGION ────────────────────────────────────────── */
+    .docker-region {
+      border: 1.5px dashed #1d4ed8;
+      background: #0d1628;
+      box-shadow: 0 0 16px #1d4ed825;
+      border-radius: 12px;
+      padding: 32px 10px 12px;
+      position: relative;
+    }
+
+    .docker-label {
+      font-size: .6rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: #3b82f6;
+      position: absolute;
+      top: 9px; left: 12px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .docker-label img { width: 15px; height: 15px; }
+
+    .ansible-badge {
+      position: absolute;
+      top: 8px; right: 10px;
+      background: #1a0e0a;
+      border: 1px solid #c2410c;
+      border-radius: 5px;
+      padding: 2px 8px;
+      font-size: .56rem;
+      color: #fb923c;
+      letter-spacing: .06em;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .ansible-badge img { width: 12px; height: 12px; }
+
+    /* ─── ENV PANELS ───────────────────────────────────────────── */
+    .envs-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .env-panel {
+      flex: 1;
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .env-title {
+      font-size: .63rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-align: center;
+      padding-bottom: 5px;
+      border-bottom: 1px solid;
+      margin-bottom: 2px;
+    }
+
+    /* container badge */
+    .container-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-size: .52rem;
+      letter-spacing: .05em;
+      padding: 2px 0;
+      border-radius: 4px;
+      margin-bottom: 2px;
+    }
+
+    .ep-homolog { background: #0e0d22; border: 1.5px solid #4c3572; box-shadow: 0 0 12px #4c357228; }
+    .ep-homolog .env-title { color: #a78bfa; border-color: #4c3572; }
+    .ep-homolog .container-badge { background: #1a1235; color: #7c5fbf; border: 1px solid #4c3572; }
+
+    .ep-prod { background: #091a10; border: 1.5px solid #059669; box-shadow: 0 0 12px #05966928; }
+    .ep-prod .env-title { color: #34d399; border-color: #059669; }
+    .ep-prod .container-badge { background: #0d2a1a; color: #4ade80; border: 1px solid #059669; }
+
+    /* ─── TECH ROW ─────────────────────────────────────────────── */
+    .trow {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: #ffffff07;
+      border-radius: 6px;
+      padding: 5px 8px;
+    }
+
+    .trow img { width: 17px; height: 17px; object-fit: contain; flex-shrink: 0; }
+    .trow .tname { font-size: .62rem; font-weight: 600; line-height: 1.2; }
+    .trow .tdesc { font-size: .53rem; color: #4a6080; line-height: 1.3; }
+
+    /* ─── DB SECTION ───────────────────────────────────────────── */
+    .db-section {
+      margin-top: 2px;
+      border-radius: 8px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .ep-homolog .db-section { background: #0a0920; border: 1px dashed #3b2a6e; }
+    .ep-prod    .db-section { background: #071510; border: 1px dashed #065f46; }
+
+    .db-label {
+      font-size: .52rem;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 1px;
+    }
+
+    .ep-homolog .db-label { color: #4c3572; }
+    .ep-prod    .db-label { color: #065f46; }
+
+    .db-container-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-size: .52rem;
+      letter-spacing: .05em;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .ep-homolog .db-container-badge { background: #12102a; color: #7c5fbf; border: 1px solid #3b2a6e; }
+    .ep-prod    .db-container-badge { background: #091a10; color: #34d399; border: 1px solid #065f46; }
+
+    .port-tag {
+      font-size: .5rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      letter-spacing: .04em;
+      font-style: italic;
+    }
+
+    .ep-homolog .port-tag { background: #1a1235; color: #6b5fa0; }
+    .ep-prod    .port-tag { background: #0d2a1a; color: #4a9b7f; }
+
+    .down-arr { text-align: center; color: #2a3a5c; font-size: .85rem; line-height: 1; }
+
+    .vol-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      margin-top: 2px;
+    }
+
+    .vol-box .vol-icon { font-size: 1rem; }
+    .vol-box .vol-name { font-size: .55rem; letter-spacing: .06em; text-transform: uppercase; }
+    .vol-homolog .vol-name { color: #6d28d9; }
+    .vol-prod    .vol-name { color: #059669; }
+
+    /* ─── LEGEND ───────────────────────────────────────────────── */
+    .legend {
+      margin-top: 28px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px 20px;
+      justify-content: center;
+      max-width: 980px;
+    }
+
+    .li {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .62rem;
+      color: #6b82a8;
+    }
+
+    .ld { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ─── NOTES ────────────────────────────────────────────────── */
+    .notes {
+      margin-top: 20px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 980px;
+    }
+
+    .note {
+      font-size: .6rem;
+      color: #4a6080;
+      background: #0d1220;
+      border: 1px solid #1e2d4a;
+      border-radius: 6px;
+      padding: 5px 12px;
+      line-height: 1.5;
+    }
+
+    .note strong { color: #7eb8ff; }
+  </style>
+</head>
+<body>
+
+<h1>Arquitetura CI/CD</h1>
+<p class="subtitle">Registro de Despesas e Receitas — GCS 2026/A</p>
+
+<div class="diagram">
+
+  <!-- ── GitHub ── -->
+  <div class="panel github-panel">
+    <div class="plabel">
+      <img src="https://cdn.simpleicons.org/github/5a7abf" width="13" height="13" alt="">
+      GitHub
+    </div>
+    <div class="ibox">
+      <img src="https://cdn.simpleicons.org/github/e0eaff" alt="GitHub" />
+      <div class="iname">Repositório</div>
+      <div class="idesc">Git · Branches<br>Versionamento</div>
+    </div>
+  </div>
+
+  <!-- Arrows GitHub → Actions -->
+  <div class="arrow-col">
+    <div class="arr branch">
+      <div class="arr-line"></div>
+      <div class="arr-label">branch</div>
+    </div>
+    <div class="arr main">
+      <div class="arr-line"></div>
+      <div class="arr-label">main</div>
+    </div>
+  </div>
+
+  <!-- ── GitHub Actions ── -->
+  <div class="panel actions-panel">
+    <div class="plabel">
+      <img src="https://cdn.simpleicons.org/githubactions/a78bfa" width="13" height="13" alt="">
+      GitHub Actions
+    </div>
+
+    <div class="sbox">
+      <img src="https://cdn.simpleicons.org/eslint/4B32C3" alt="ESLint" />
+      <div>
+        <div class="sname">ESLint</div>
+        <div class="sdesc">Qualidade de código<br>TypeScript · React</div>
+      </div>
+    </div>
+    <div class="sarrow">↓</div>
+
+    <div class="sbox">
+      <img src="https://cdn.simpleicons.org/vitest/6E9F18" alt="Vitest" />
+      <div>
+        <div class="sname">Vitest</div>
+        <div class="sdesc">20 testes unitários<br>Coverage report</div>
+      </div>
+    </div>
+    <div class="sarrow">↓</div>
+
+    <div class="sbox">
+      <img src="https://cdn.simpleicons.org/vite/646CFF" alt="Vite" />
+      <div>
+        <div class="sname">Build</div>
+        <div class="sdesc">tsc · vite build<br>Docker image</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow Actions → VM -->
+  <div class="arrow-col">
+    <div class="arr deploy">
+      <div class="arr-line"></div>
+      <div class="arr-label">deploy</div>
+    </div>
+  </div>
+
+  <!-- ── Ubuntu VM ── -->
+  <div class="panel vm-panel">
+    <div class="plabel">
+      <img src="https://cdn.simpleicons.org/ubuntu/f87171" width="14" height="14" alt="">
+      Ubuntu VM — Univates
+    </div>
+    <div class="vm-os">Linux · Ubuntu 22.04 LTS</div>
+
+    <!-- Nginx — SERVIÇO DO SISTEMA (não é container) -->
+    <div class="nginx-service-row">
+      <div class="nginx-service-box">
+        <img src="https://cdn.simpleicons.org/nginx/10b981" alt="Nginx" />
+        <div class="nginx-name">NGINX</div>
+        <span class="nginx-tag">serviço do sistema · porta :80</span>
+      </div>
+    </div>
+
+    <!-- Setas do Nginx para os ambientes -->
+    <div class="nginx-arrows-row">
+      <div class="nginx-arr na-homolog">
+        <div class="na-label">/homolog → :3000</div>
+        <div class="na-down">↓</div>
+      </div>
+      <div class="nginx-arr na-prod">
+        <div class="na-label">/prod → :3001</div>
+        <div class="na-down">↓</div>
+      </div>
+    </div>
+
+    <!-- Docker region -->
+    <div class="docker-region">
+      <div class="docker-label">
+        <img src="https://cdn.simpleicons.org/docker/3b82f6" alt="Docker" />
+        Docker Engine — 4 containers
+      </div>
+      <div class="ansible-badge">
+        <img src="https://cdn.simpleicons.org/ansible/fb923c" alt="Ansible" />
+        Provisionado via Ansible
+      </div>
+
+      <!-- Env panels -->
+      <div class="envs-row">
+
+        <!-- Homolog -->
+        <div class="env-panel ep-homolog">
+          <div class="env-title">HOMOLOG</div>
+
+          <!-- container app -->
+          <div class="container-badge">
+            📦 container: app-homologacao · :3000
+          </div>
+
+          <div class="trow">
+            <img src="https://cdn.simpleicons.org/nodedotjs/339933" alt="Node.js" />
+            <div>
+              <div class="tname" style="color:#86efac">Node.js · Express</div>
+              <div class="tdesc">TypeScript · REST API</div>
+            </div>
+          </div>
+
+          <div class="trow">
+            <img src="https://cdn.simpleicons.org/react/61DAFB" alt="React" />
+            <div>
+              <div class="tname" style="color:#93c5fd">React · Vite</div>
+              <div class="tdesc">Frontend · SPA</div>
+            </div>
+          </div>
+
+          <div class="trow">
+            <img src="https://cdn.simpleicons.org/prisma/e0eaff" alt="Prisma" />
+            <div>
+              <div class="tname" style="color:#c4b5fd">Prisma ORM</div>
+              <div class="tdesc">Migrations · Deploy</div>
+            </div>
+          </div>
+
+          <!-- db container (interno) -->
+          <div class="db-section">
+            <div class="db-label">banco de dados</div>
+            <div class="db-container-badge">
+              📦 container: db-homologacao
+            </div>
+            <div class="trow">
+              <img src="https://cdn.simpleicons.org/postgresql/4169E1" alt="PostgreSQL" />
+              <div>
+                <div class="tname" style="color:#818cf8">PostgreSQL 15</div>
+                <div class="tdesc">rede interna Docker<br>sem porta exposta</div>
+              </div>
+            </div>
+            <div class="down-arr">↓</div>
+            <div class="vol-box vol-homolog">
+              <div class="vol-icon">🗄</div>
+              <div class="vol-name">Volume HML</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prod -->
+        <div class="env-panel ep-prod">
+          <div class="env-title">PROD</div>
+
+          <!-- container app -->
+          <div class="container-badge">
+            📦 container: app-producao · :3001
+          </div>
+
+          <div class="trow">
+            <img src="https://cdn.simpleicons.org/nodedotjs/339933" alt="Node.js" />
+            <div>
+              <div class="tname" style="color:#6ee7b7">Node.js · Express</div>
+              <div class="tdesc">TypeScript · REST API</div>
+            </div>
+          </div>
+
+          <div class="trow">
+            <img src="https://cdn.simpleicons.org/react/61DAFB" alt="React" />
+            <div>
+              <div class="tname" style="color:#93c5fd">React · Vite</div>
+              <div class="tdesc">Frontend · SPA</div>
+            </div>
+          </div>
+
+          <div class="trow">
+            <img src="https://cdn.simpleicons.org/prisma/e0eaff" alt="Prisma" />
+            <div>
+              <div class="tname" style="color:#c4b5fd">Prisma ORM</div>
+              <div class="tdesc">Migrations · Deploy</div>
+            </div>
+          </div>
+
+          <!-- db container (interno) -->
+          <div class="db-section">
+            <div class="db-label">banco de dados</div>
+            <div class="db-container-badge">
+              📦 container: db-producao
+            </div>
+            <div class="trow">
+              <img src="https://cdn.simpleicons.org/postgresql/4169E1" alt="PostgreSQL" />
+              <div>
+                <div class="tname" style="color:#34d399">PostgreSQL 15</div>
+                <div class="tdesc">rede interna Docker<br>sem porta exposta</div>
+              </div>
+            </div>
+            <div class="down-arr">↓</div>
+            <div class="vol-box vol-prod">
+              <div class="vol-icon">🗄</div>
+              <div class="vol-name">Volume PROD</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- envs-row -->
+    </div><!-- docker-region -->
+  </div><!-- vm-panel -->
+
+</div><!-- diagram -->
+
+
+</body>
+</html>
