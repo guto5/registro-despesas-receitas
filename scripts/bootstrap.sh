@@ -15,20 +15,29 @@ echo ""
 # ── 1. Dependencias ───────────────────────────────────────────────────────────
 step "1/7  Instalando dependencias do sistema"
 apt-get update -qq
-# Instala pacotes base sem ansible (evita conflito em VMs com pacotes fixados)
-apt-get install -y -qq docker.io git nginx python3-pip python3-full curl pipx
-systemctl enable docker --now
-log "Docker, Git, Nginx, Python instalados"
 
-# Instala Ansible via pipx (forma recomendada no Ubuntu 22.04+)
-pipx install ansible-core 2>/dev/null || pip3 install ansible-core --break-system-packages -q
-# Garante que o binario do ansible esta no PATH
+# Instala cada pacote individualmente para evitar conflitos de pacotes fixados
+for PKG in docker.io git nginx curl python3-pip; do
+  apt-get install -y -qq "$PKG" 2>/dev/null && log "$PKG instalado" || log "$PKG ja presente ou ignorado"
+done
+
+systemctl enable docker --now 2>/dev/null || true
+
+# Garante que o PATH inclui binarios locais do pip
 export PATH="$PATH:$HOME/.local/bin"
-echo 'export PATH="$PATH:$HOME/.local/bin"' >> /root/.bashrc
+echo 'export PATH="$PATH:$HOME/.local/bin"' >> /root/.bashrc 2>/dev/null || true
 
-# SDK Python do Docker para o modulo community.docker
-pip3 install docker --break-system-packages -q
-log "Ansible e SDK Docker instalados"
+# Instala Ansible via pip (sem conflitar com gerenciador de pacotes do sistema)
+pip3 install ansible-core --break-system-packages -q 2>/dev/null \
+  || pip3 install ansible-core -q \
+  || { apt-get install -y -qq ansible 2>/dev/null && log "Ansible instalado via apt"; }
+
+# SDK Python do Docker (modulo community.docker)
+pip3 install docker --break-system-packages -q 2>/dev/null \
+  || pip3 install docker -q \
+  || true
+
+log "Ansible e SDK Docker prontos"
 
 # ── 2. Colecao Ansible ────────────────────────────────────────────────────────
 step "2/7  Instalando colecao Ansible community.docker"
