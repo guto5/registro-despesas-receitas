@@ -15,9 +15,20 @@ echo ""
 # ── 1. Dependencias ───────────────────────────────────────────────────────────
 step "1/7  Instalando dependencias do sistema"
 apt-get update -qq
-apt-get install -y -qq docker.io git ansible nginx python3-docker curl
+# Instala pacotes base sem ansible (evita conflito em VMs com pacotes fixados)
+apt-get install -y -qq docker.io git nginx python3-pip python3-full curl pipx
 systemctl enable docker --now
-log "Docker, Git, Ansible, Nginx instalados"
+log "Docker, Git, Nginx, Python instalados"
+
+# Instala Ansible via pipx (forma recomendada no Ubuntu 22.04+)
+pipx install ansible-core 2>/dev/null || pip3 install ansible-core --break-system-packages -q
+# Garante que o binario do ansible esta no PATH
+export PATH="$PATH:$HOME/.local/bin"
+echo 'export PATH="$PATH:$HOME/.local/bin"' >> /root/.bashrc
+
+# SDK Python do Docker para o modulo community.docker
+pip3 install docker --break-system-packages -q
+log "Ansible e SDK Docker instalados"
 
 # ── 2. Colecao Ansible ────────────────────────────────────────────────────────
 step "2/7  Instalando colecao Ansible community.docker"
