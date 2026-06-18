@@ -16,7 +16,7 @@ const PORT = Number(process.env.PORT) || 3001;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // DEMO: descomente a linha abaixo para disparar erro no Quality Assurance (ESLint no-unused-vars)
-const variavelDemoQA = "quebra o lint";
+// const variavelDemoQA = "quebra o lint";
 
 
 app.use(
