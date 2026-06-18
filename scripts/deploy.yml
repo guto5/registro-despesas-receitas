@@ -78,7 +78,7 @@
         build:
           path: "{{ repo_dir }}"
         source: build
-        force_source: false
+        force_source: true
 
     # ── Aplicacao — Homologacao ────────────────────────────────────────────────
     - name: Iniciar container app-homologacao
