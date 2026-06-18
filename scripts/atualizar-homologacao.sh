@@ -39,9 +39,12 @@ docker run -d --name app-homologacao \
 
 # ── 4. Status ─────────────────────────────────────────────────────────────────
 echo ""
-echo "[4/4] Aguardando container iniciar..."
-sleep 3
+echo "[4/4] Aguardando aplicacao iniciar e migrations rodarem..."
+sleep 12
 docker ps --filter "name=app-homologacao" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+echo ""
+echo "Migrations aplicadas:"
+docker exec app-homologacao ./node_modules/.bin/prisma migrate status 2>/dev/null | grep -E "Applied|Pending|migration" || true
 
 echo ""
 echo "================================================================"

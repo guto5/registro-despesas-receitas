@@ -77,8 +77,8 @@ docker run -d --name app-producao \
   --env-file "$INFRA_DIR/.env.prod" \
   app-registro-despesas:prod
 
-echo "Aguardando aplicacao iniciar e rodar as migrations..."
-sleep 8
+echo "Aguardando aplicacao iniciar e migrations rodarem..."
+sleep 12
 
 # Popula o banco apenas se estiver vazio (primeira vez)
 USER_COUNT=$(docker exec db-producao psql -U admin -d app_db -tAc "SELECT COUNT(*) FROM lancamento;" 2>/dev/null || echo "0")
@@ -93,6 +93,9 @@ else
 fi
 
 docker ps --filter "name=app-producao" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+echo ""
+echo "Migrations aplicadas:"
+docker exec app-producao ./node_modules/.bin/prisma migrate status 2>/dev/null | grep -E "Applied|Pending|migration" || true
 
 echo ""
 echo "================================================================"
