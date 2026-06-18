@@ -65,7 +65,7 @@ export default function App() {
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium text-slate-500">Protótipo</p>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-              Registro de despesas e receitas
+              Registro de despesOs e receitas
             </h1>
             <p className="text-sm text-slate-600">
               Olá, <span className="font-medium text-slate-800">{usuario.nome}</span> ({usuario.login})
